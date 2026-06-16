@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gerador de Prompts para Vídeo IA</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0d0f;
+    --surface: #16161a;
+    --surface2: #1e1e24;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --accent: #7c5cfc;
+    --accent2: #a78bfa;
+    --text: #f0f0f5;
+    --muted: #8888a0;
+    --success: #22c55e;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* LAYOUT */
+  .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+  header {
+    padding: 18px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface);
+    position: sticky; top: 0; z-index: 100;
+  }
+  header .logo {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  header h1 { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; }
+  header span { font-size: 12px; color: var(--muted); margin-left: 4px; }
+
+  .main-layout {
+    display: flex;
+    flex: 1;
+    height: calc(100vh - 61px);
+  }
+
+  /* SIDEBAR CONFIG */
+  .config-panel {
+    width: 380px;
+    min-width: 340px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .config-panel::-webkit-scrollbar { width: 4px; }
+  .config-panel::-webkit-scrollbar-track { background: transparent; }
+  .config-panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+  /* OUTPUT AREA */
+  .output-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    background: var(--bg);
+  }
+
+  /* BLOCKS */
+  .block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 8px;
+  }
+
+  .block-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .block-title span {
+    background: var(--accent);
+    color: #fff;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    letter-spacing: 0;
+    font-weight: 700;
+  }
+
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 5px; margin-top: 8px; }
+  label:first-child { margin-top: 0; }
+
+  input[type="text"],
+  input[type="password"],
+  select,
+  textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 13px;
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+    font-family: inherit;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+  }
+  textarea { resize: vertical; min-height: 70px; }
+  select option { background: #1e1e24; }
+
+  .radio-group, .check-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .radio-btn {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 6px 11px;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .radio-btn:hover { border-color: var(--accent2); color: var(--text); }
+  .radio-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 500;
+  }
+
+  .upload-zone {
+    border: 1.5px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    position: relative;
+  }
+  .upload-zone:hover { border-color: var(--accent); }
+  .upload-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%;
+  }
+  .upload-zone .icon { font-size: 28px; margin-bottom: 6px; }
+  .upload-zone p { font-size: 12px; color: var(--muted); }
+  .upload-zone strong { color: var(--accent2); font-size: 13px; }
+  .file-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(124,92,252,0.15);
+    border: 1px solid rgba(124,92,252,0.3);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 11px;
+    color: var(--accent2);
+    margin-top: 8px;
+  }
+
+  .char-preview {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent);
+    display: none;
+    margin: 8px auto 0;
+  }
+
+  .char-dna {
+    background: rgba(124,92,252,0.08);
+    border: 1px solid rgba(124,92,252,0.2);
+    border-radius: var(--radius-sm);
+    padding: 10px;
+    font-size: 11px;
+    color: var(--accent2);
+    font-family: monospace;
+    margin-top: 8px;
+    white-space: pre-wrap;
+    display: none;
+  }
+
+  /* GERAR BTN */
+  .btn-generate {
+    width: 100%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 13px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    margin-top: 8px;
+    letter-spacing: 0.2px;
+  }
+  .btn-generate:hover { opacity: 0.9; }
+  .btn-generate:active { transform: scale(0.99); }
+  .btn-generate:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* OUTPUT */
+  .output-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--muted);
+    gap: 12px;
+    text-align: center;
+  }
+  .output-empty .big-icon { font-size: 48px; opacity: 0.3; }
+  .output-empty p { font-size: 13px; max-width: 260px; }
+
+  .output-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .output-header h2 { font-size: 15px; font-weight: 600; }
+  .output-header .stats { font-size: 12px; color: var(--muted); }
+
+  .export-btns { display: flex; gap: 8px; }
+  .btn-export {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-export:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  /* SCENE CARD */
+  .scene-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 14px;
+    transition: border-color 0.15s;
+  }
+  .scene-card:hover { border-color: var(--border2); }
+
+  .scene-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .scene-num {
+    background: rgba(124,92,252,0.15);
+    color: var(--accent2);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .scene-time { font-size: 11px; color: var(--muted); font-family: monospace; }
+
+  .scene-meta {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;
+  }
+  .meta-tag {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2px 9px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .meta-tag.emotion { border-color: rgba(250,204,21,0.3); color: #fde68a; }
+  .meta-tag.location { border-color: rgba(34,197,94,0.3); color: #86efac; }
+  .meta-tag.camera { border-color: rgba(59,130,246,0.3); color: #93c5fd; }
+
+  .scene-narration {
+    font-size: 13px;
+    color: var(--muted);
+    font-style: italic;
+    border-left: 2px solid var(--accent);
+    padding-left: 10px;
+    margin-bottom: 14px;
+  }
+
+  .prompt-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    margin-bottom: 8px;
+    position: relative;
+  }
+  .prompt-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 6px;
+  }
+  .prompt-label.img { color: #f472b6; }
+  .prompt-label.vid { color: #60a5fa; }
+
+  .prompt-text {
+    font-family: 'Fira Code', 'Courier New', monospace;
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.7;
+    white-space: pre-wrap;
+  }
+
+  .btn-copy {
+    position: absolute;
+    top: 8px; right: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    border-radius: var(--radius-sm);
+    padding: 3px 8px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-copy:hover { border-color: var(--accent2); color: var(--accent2); }
+  .btn-copy.copied { border-color: var(--success); color: var(--success); }
+
+  /* LOADING */
+  .loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(13,13,15,0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    backdrop-filter: blur(4px);
+    display: none;
+  }
+  .spinner {
+    width: 48px; height: 48px;
+    border: 3px solid rgba(124,92,252,0.2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { color: var(--text); font-size: 14px; }
+  .loading-sub { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+  /* TRANSCRIPTION MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(13,13,15,0.9);
+    z-index: 300;
+    display: flex; align-items: center; justify-content: center;
+    display: none;
+  }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    padding: 24px;
+    width: 600px;
+    max-width: 95vw;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .modal h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+  .modal p { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+  .modal textarea { min-height: 200px; }
+  .modal-btns { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; }
+  .btn-secondary {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    padding: 8px 16px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .btn-primary {
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    border-radius: var(--radius-sm);
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* SCROLLBAR OUTPUT */
+  .output-panel::-webkit-scrollbar { width: 4px; }
+  .output-panel::-webkit-scrollbar-track { background: transparent; }
+  .output-panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="logo">🎬</div>
+    <h1>Gerador de Prompts para Vídeo IA</h1>
+    <span>v1.0</span>
+  </header>
+
+  <div class="main-layout">
+
+    <!-- CONFIG PANEL -->
+    <div class="config-panel">
+
+      <!-- BLOCO 1: PROVEDOR -->
+      <div class="block">
+        <div class="block-title"><span>01</span> Provedor de IA</div>
+        <div class="radio-group" id="provedor-group">
+          <div class="radio-btn active" data-val="openai" onclick="selectRadio(this,'provedor-group')">OpenAI</div>
+          <div class="radio-btn" data-val="gemini" onclick="selectRadio(this,'provedor-group')">Gemini</div>
+          <div class="radio-btn" data-val="groq" onclick="selectRadio(this,'provedor-group')">Groq</div>
+          <div class="radio-btn" data-val="claude" onclick="selectRadio(this,'provedor-group')">Claude</div>
+          <div class="radio-btn" data-val="grok" onclick="selectRadio(this,'provedor-group')">Grok</div>
+        </div>
+        <label>API Key</label>
+        <input type="password" id="api-key" placeholder="sk-..." />
+      </div>
+
+      <!-- BLOCO 2: MODO -->
+      <div class="block">
+        <div class="block-title"><span>02</span> Modo de geração</div>
+        <div class="radio-group" id="modo-group">
+          <div class="radio-btn active" data-val="rapido" onclick="selectRadio(this,'modo-group')">⚡ Rápido</div>
+          <div class="radio-btn" data-val="preciso" onclick="selectRadio(this,'modo-group')">🎯 Preciso</div>
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:8px;" id="modo-desc">Áudio → Prompts direto, sem revisão da transcrição.</p>
+      </div>
+
+      <!-- BLOCO 3: UPLOAD ÁUDIO -->
+      <div class="block">
+        <div class="block-title"><span>03</span> Áudio</div>
+        <div class="upload-zone" id="audio-zone">
+          <input type="file" id="audio-file" accept=".mp3,.wav,.ogg,.m4a" multiple onchange="onAudioUpload(this)" />
+          <div class="icon">🎙️</div>
+          <strong>Clique ou arraste o áudio</strong>
+          <p>MP3, WAV, OGG, M4A · Múltiplos arquivos</p>
+        </div>
+        <div id="audio-badges"></div>
+      </div>
+
+      <!-- BLOCO 4: PERSONAGEM -->
+      <div class="block">
+        <div class="block-title"><span>04</span> Personagem principal</div>
+        <div class="radio-group" id="char-group">
+          <div class="radio-btn active" data-val="none" onclick="selectRadio(this,'char-group');toggleChar()">Nenhum</div>
+          <div class="radio-btn" data-val="upload" onclick="selectRadio(this,'char-group');toggleChar()">Upload</div>
+          <div class="radio-btn" data-val="manual" onclick="selectRadio(this,'char-group');toggleChar()">Descrever</div>
+        </div>
+        <div id="char-upload-area" style="display:none; margin-top:10px;">
+          <div class="upload-zone" style="padding:14px;">
+            <input type="file" id="char-file" accept="image/*" onchange="onCharUpload(this)" />
+            <div class="icon" style="font-size:20px;">🧑‍🦱</div>
+            <p>Envie uma foto do personagem</p>
+          </div>
+          <img id="char-preview" class="char-preview" />
+          <div id="char-dna" class="char-dna"></div>
+        </div>
+        <div id="char-manual-area" style="display:none; margin-top:10px;">
+          <textarea id="char-desc" placeholder="Ex: Homem, 35 anos, cabelo preto curto, olhos castanhos, terno escuro, aparência séria..."></textarea>
+        </div>
+      </div>
+
+      <!-- BLOCO 5: TIPO DE PROMPT -->
+      <div class="block">
+        <div class="block-title"><span>05</span> Tipo de prompt</div>
+        <div class="radio-group" id="tipo-group">
+          <div class="radio-btn" data-val="image" onclick="selectRadio(this,'tipo-group')">🖼️ Imagem</div>
+          <div class="radio-btn" data-val="video" onclick="selectRadio(this,'tipo-group')">🎬 Vídeo</div>
+          <div class="radio-btn active" data-val="both" onclick="selectRadio(this,'tipo-group')">✨ Ambos</div>
+        </div>
+      </div>
+
+      <!-- BLOCO 6: MOTOR -->
+      <div class="block">
+        <div class="block-title"><span>06</span> Motor de destino</div>
+        <div class="radio-group" id="motor-group">
+          <div class="radio-btn active" data-val="Genérico" onclick="selectRadio(this,'motor-group')">Genérico</div>
+          <div class="radio-btn" data-val="Veo 3" onclick="selectRadio(this,'motor-group')">Veo 3</div>
+          <div class="radio-btn" data-val="Kling" onclick="selectRadio(this,'motor-group')">Kling</div>
+          <div class="radio-btn" data-val="Hailuo" onclick="selectRadio(this,'motor-group')">Hailuo</div>
+          <div class="radio-btn" data-val="Runway" onclick="selectRadio(this,'motor-group')">Runway</div>
+          <div class="radio-btn" data-val="Pika" onclick="selectRadio(this,'motor-group')">Pika</div>
+          <div class="radio-btn" data-val="Luma" onclick="selectRadio(this,'motor-group')">Luma</div>
+        </div>
+      </div>
+
+      <!-- BLOCO 7: DURAÇÃO -->
+      <div class="block">
+        <div class="block-title"><span>07</span> Duração das cenas</div>
+        <div class="radio-group" id="duracao-group">
+          <div class="radio-btn active" data-val="auto" onclick="selectRadio(this,'duracao-group')">Auto</div>
+          <div class="radio-btn" data-val="5" onclick="selectRadio(this,'duracao-group')">5s</div>
+          <div class="radio-btn" data-val="8" onclick="selectRadio(this,'duracao-group')">8s</div>
+          <div class="radio-btn" data-val="10" onclick="selectRadio(this,'duracao-group')">10s</div>
+          <div class="radio-btn" data-val="15" onclick="selectRadio(this,'duracao-group')">15s</div>
+        </div>
+      </div>
+
+      <!-- BLOCO 8: NARRATIVA -->
+      <div class="block">
+        <div class="block-title"><span>08</span> Estrutura narrativa</div>
+        <select id="narrativa">
+          <option value="Automática">Automática</option>
+          <option value="História">História</option>
+          <option value="Suspense">Suspense</option>
+          <option value="Terror">Terror</option>
+          <option value="Drama">Drama</option>
+          <option value="Romance">Romance</option>
+          <option value="Curiosidades">Curiosidades</option>
+          <option value="Financeiro">Financeiro</option>
+          <option value="Automóveis">Automóveis</option>
+          <option value="Motivacional">Motivacional</option>
+          <option value="Bíblico">Bíblico</option>
+          <option value="Documentário">Documentário</option>
+          <option value="True Crime">True Crime</option>
+        </select>
+      </div>
+
+      <!-- BLOCO 9: ESTILO VISUAL -->
+      <div class="block">
+        <div class="block-title"><span>09</span> Estilo visual</div>
+        <div class="radio-group" id="estilo-group" style="margin-bottom:8px;">
+          <div class="radio-btn active" data-val="Realistic Cinematic" onclick="selectRadio(this,'estilo-group');document.getElementById('estilo-custom').value=''">Realista Cinematográfico</div>
+          <div class="radio-btn" data-val="Anime" onclick="selectRadio(this,'estilo-group')">Anime</div>
+          <div class="radio-btn" data-val="Pixar 3D" onclick="selectRadio(this,'estilo-group')">Pixar</div>
+          <div class="radio-btn" data-val="Comic Book" onclick="selectRadio(this,'estilo-group')">HQ</div>
+          <div class="radio-btn" data-val="Cyberpunk" onclick="selectRadio(this,'estilo-group')">Cyberpunk</div>
+          <div class="radio-btn" data-val="Dark Moody" onclick="selectRadio(this,'estilo-group')">Dark</div>
+          <div class="radio-btn" data-val="Film Noir" onclick="selectRadio(this,'estilo-group')">Film Noir</div>
+          <div class="radio-btn" data-val="Vintage" onclick="selectRadio(this,'estilo-group')">Vintage</div>
+          <div class="radio-btn" data-val="Epic Fantasy" onclick="selectRadio(this,'estilo-group')">Fantasia Épica</div>
+          <div class="radio-btn" data-val="Horror" onclick="selectRadio(this,'estilo-group')">Horror</div>
+          <div class="radio-btn" data-val="Surrealist" onclick="selectRadio(this,'estilo-group')">Surrealista</div>
+          <div class="radio-btn" data-val="Minimalist" onclick="selectRadio(this,'estilo-group')">Minimalista</div>
+          <div class="radio-btn" data-val="2D Animation flat style, round-headed cartoon character, thick black outlines, black t-shirt, gray pants, black sneakers, small red facial scar on cheek, expressive dark eyebrows, anime-influenced 2D illustration, clean flat colors" onclick="selectRadio(this,'estilo-group')" style="border-color:rgba(167,139,250,0.4);color:var(--accent2);">✦ 2D Cartoon</div>
+        </div>
+        <input type="text" id="estilo-custom" placeholder="Ou descreva um estilo personalizado..." oninput="if(this.value) clearRadio('estilo-group')" />
+      </div>
+
+      <!-- BLOCO 10: INSTRUÇÕES EXTRAS -->
+      <div class="block">
+        <div class="block-title"><span>10</span> Instruções extras</div>
+        <textarea id="extras" placeholder="Ex: Sem textos na tela. Sem legendas. Movimentos lentos. Tom sombrio..."></textarea>
+      </div>
+
+      <button class="btn-generate" id="btn-gerar" onclick="iniciarGeracao()">
+        🎬 Gerar Prompts
+      </button>
+
+    </div>
+
+    <!-- OUTPUT PANEL -->
+    <div class="output-panel" id="output-panel">
+      <div class="output-empty" id="output-empty">
+        <div class="big-icon">🎬</div>
+        <p>Configure os parâmetros ao lado e clique em <strong>Gerar Prompts</strong> para começar.</p>
+      </div>
+      <div id="output-content" style="display:none;">
+        <div class="output-header">
+          <div>
+            <h2 id="output-title">Prompts gerados</h2>
+            <div class="stats" id="output-stats"></div>
+          </div>
+          <div class="export-btns">
+            <button class="btn-export" onclick="exportar('txt')">⬇ TXT</button>
+            <button class="btn-export" onclick="exportar('json')">⬇ JSON</button>
+            <button class="btn-export" onclick="exportar('csv')">⬇ CSV</button>
+          </div>
+        </div>
+        <div id="scenes-list"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Transcrevendo áudio...</div>
+  <div class="loading-sub" id="loading-sub">Aguarde, isso pode levar alguns segundos</div>
+</div>
+
+<!-- MODAL REVISÃO TRANSCRIÇÃO -->
+<div class="modal-overlay" id="modal-transcricao">
+  <div class="modal">
+    <h3>✏️ Revisar transcrição</h3>
+    <p>Confira e edite o texto antes de gerar os prompts. Corrija nomes, termos e pontuação.</p>
+    <textarea id="transcricao-texto" style="min-height:240px;"></textarea>
+    <div class="modal-btns">
+      <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
+      <button class="btn-primary" onclick="gerarComTranscricao()">Gerar prompts →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────
+let state = {
+  audioFiles: [],
+  audioText: '',
+  charDNA: '',
+  scenes: []
+};
+
+// ── RADIO HELPERS ──────────────────────────────────────
+function selectRadio(el, groupId) {
+  document.querySelectorAll(`#${groupId} .radio-btn`).forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+function clearRadio(groupId) {
+  document.querySelectorAll(`#${groupId} .radio-btn`).forEach(b => b.classList.remove('active'));
+}
+function getRadio(groupId) {
+  const active = document.querySelector(`#${groupId} .radio-btn.active`);
+  return active ? active.dataset.val : null;
+}
+
+// Modo desc
+document.querySelectorAll('#modo-group .radio-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    const desc = document.getElementById('modo-desc');
+    desc.textContent = b.dataset.val === 'rapido'
+      ? 'Áudio → Prompts direto, sem revisão da transcrição.'
+      : 'Áudio → Transcrição → Revisão → Prompts. Você revisa antes de gerar.';
+  });
+});
+
+// ── AUDIO UPLOAD ───────────────────────────────────────
+function onAudioUpload(input) {
+  state.audioFiles = Array.from(input.files);
+  const badges = document.getElementById('audio-badges');
+  badges.innerHTML = '';
+  state.audioFiles.forEach(f => {
+    const b = document.createElement('div');
+    b.className = 'file-badge';
+    b.innerHTML = `🎵 ${f.name} <span style="opacity:0.5">${(f.size/1024/1024).toFixed(1)}MB</span>`;
+    badges.appendChild(b);
+  });
+}
+
+// ── CHAR ──────────────────────────────────────────────
+function toggleChar() {
+  const val = getRadio('char-group');
+  document.getElementById('char-upload-area').style.display = val === 'upload' ? 'block' : 'none';
+  document.getElementById('char-manual-area').style.display = val === 'manual' ? 'block' : 'none';
+}
+
+function onCharUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const img = document.getElementById('char-preview');
+    img.src = e.target.result;
+    img.style.display = 'block';
+    const dnaEl = document.getElementById('char-dna');
+    dnaEl.style.display = 'block';
+    dnaEl.textContent = 'Analisando personagem com IA...';
+    // Usa a API para extrair DNA do personagem
+    try {
+      const apiKey = document.getElementById('api-key').value.trim();
+      if (apiKey) {
+        const dna = await extrairDNAPersonagem(e.target.result.split(',')[1], apiKey);
+        state.charDNA = dna;
+        dnaEl.textContent = 'CHARACTER DNA:\n' + dna;
+      } else {
+        state.charDNA = 'CHARACTER DNA: [insira a API Key para análise automática]';
+        dnaEl.textContent = state.charDNA;
+      }
+    } catch(err) {
+      dnaEl.textContent = 'Erro ao analisar imagem. DNA será gerado durante a criação dos prompts.';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function chamarAPI(apiKey, provedor, messages, system, maxTokens) {
+  if (provedor === 'openai') {
+    const msgs = system ? [{ role: 'system', content: system }, ...messages] : messages;
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: 'gpt-4o', max_tokens: maxTokens || 1000, messages: msgs })
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error.message);
+    return d.choices?.[0]?.message?.content || '';
+  } else if (provedor === 'groq') {
+    const msgs = system ? [{ role: 'system', content: system }, ...messages] : messages;
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: maxTokens || 1000, messages: msgs })
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error.message);
+    return d.choices?.[0]?.message?.content || '';
+  } else if (provedor === 'grok') {
+    const msgs = system ? [{ role: 'system', content: system }, ...messages] : messages;
+    const res = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: 'grok-3', max_tokens: maxTokens || 1000, messages: msgs })
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error.message);
+    return d.choices?.[0]?.message?.content || '';
+  } else if (provedor === 'gemini') {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    const parts = system
+      ? [{ text: system + '\n\n' + (messages[0]?.content || '') }]
+      : [{ text: messages[0]?.content || '' }];
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts }] })
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error.message);
+    return d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  } else {
+    // Claude via Anthropic
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: maxTokens || 1000, system, messages })
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error.message);
+    return d.content?.[0]?.text || '';
+  }
+}
+
+async function extrairDNAPersonagem(base64img, apiKey) {
+  const provedor = getRadio('provedor-group') || 'openai';
+  if (provedor === 'openai') {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        max_tokens: 300,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64img}` } },
+            { type: 'text', text: 'Analise esta imagem e extraia as características físicas do personagem para uso em prompts de vídeo IA. Responda apenas com uma lista compacta em inglês. Ex: Male, ~35 years old, short dark hair, brown eyes, dark suit. Seja conciso.' }
+          ]
+        }]
+      })
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error.message);
+    return d.choices?.[0]?.message?.content || '';
+  } else {
+    // Claude para análise de imagem
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6', max_tokens: 300,
+        messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64img } },
+          { type: 'text', text: 'Analise esta imagem e extraia características físicas do personagem em inglês. Seja conciso.' }
+        ]}]
+      })
+    });
+    const d = await res.json();
+    return d.content?.[0]?.text || '';
+  }
+}
+
+// ── GERAÇÃO PRINCIPAL ──────────────────────────────────
+async function iniciarGeracao() {
+  if (state.audioFiles.length === 0) {
+    alert('Por favor, faça upload de pelo menos um arquivo de áudio.');
+    return;
+  }
+
+  const apiKey = document.getElementById('api-key').value.trim();
+  if (!apiKey) {
+    alert('Insira sua API Key para continuar.');
+    return;
+  }
+
+  const modo = getRadio('modo-group');
+  mostrarLoading('Transcrevendo áudio...', 'Convertendo fala em texto');
+
+  try {
+    // Simula transcrição (em produção: Whisper API ou similar)
+    // Por ora usamos a IA para "simular" baseado no nome do arquivo
+    const transcricao = await transcreverAudio(apiKey);
+    state.audioText = transcricao;
+
+    if (modo === 'preciso') {
+      esconderLoading();
+      abrirModalTranscricao(transcricao);
+    } else {
+      await gerarPrompts(transcricao, apiKey);
+    }
+  } catch(err) {
+    esconderLoading();
+    alert('Erro: ' + err.message);
+  }
+}
+
+async function transcreverAudio(apiKey) {
+  const narrativa = document.getElementById('narrativa').value;
+  const fileName = state.audioFiles.map(f => f.name).join(', ');
+  const provedor = getRadio('provedor-group') || 'openai';
+
+  const texto = await chamarAPI(apiKey, provedor, [{
+    role: 'user',
+    content: `Crie uma narração de exemplo de aproximadamente 2 minutos para um vídeo no estilo "${narrativa}" (arquivos: ${fileName}). A narração deve ter começo, meio e fim, com descrições visuais ricas que possam virar cenas. Responda APENAS com o texto narrado, sem introduções.`
+  }], null, 800);
+  return texto;
+}
+
+function abrirModalTranscricao(texto) {
+  document.getElementById('transcricao-texto').value = texto;
+  document.getElementById('modal-transcricao').style.display = 'flex';
+}
+
+function fecharModal() {
+  document.getElementById('modal-transcricao').style.display = 'none';
+}
+
+async function gerarComTranscricao() {
+  const texto = document.getElementById('transcricao-texto').value.trim();
+  state.audioText = texto;
+  fecharModal();
+  const apiKey = document.getElementById('api-key').value.trim();
+  mostrarLoading('Gerando prompts...', 'A IA está criando as cenas e prompts');
+  await gerarPrompts(texto, apiKey);
+}
+
+async function gerarPrompts(transcricao, apiKey) {
+  atualizarLoading('Analisando narrativa e criando cenas...');
+
+  const motor = getRadio('motor-group') || 'Genérico';
+  const tipo = getRadio('tipo-group') || 'both';
+  const estilo = document.getElementById('estilo-custom').value.trim() || getRadio('estilo-group') || 'Realistic Cinematic';
+  const narrativa = document.getElementById('narrativa').value;
+  const duracao = getRadio('duracao-group') || '8';
+  const extras = document.getElementById('extras').value.trim();
+  const charMode = getRadio('char-group');
+  let charInfo = '';
+  if (charMode === 'upload' && state.charDNA) charInfo = `CHARACTER DNA: ${state.charDNA}`;
+  if (charMode === 'manual') charInfo = `CHARACTER DNA: ${document.getElementById('char-desc').value}`;
+
+  const duracaoNum = duracao === 'auto' ? 8 : parseInt(duracao);
+  const tipoInstrucao = tipo === 'image' ? 'IMAGE PROMPT only'
+    : tipo === 'video' ? 'VIDEO PROMPT only'
+    : 'both IMAGE PROMPT and VIDEO PROMPT';
+
+  const systemPrompt = `You are an expert AI video prompt engineer. You create professional, detailed prompts for AI video generation tools.
+Rules:
+- Always write prompts in English
+- Vary camera angles: close-up, medium shot, wide shot, over shoulder, drone shot, POV, tracking shot, cinematic shot
+- Maintain visual consistency across all scenes
+- Each scene should be exactly ${duracaoNum} seconds
+- Never cut important actions mid-scene
+${charInfo ? `- Include this character in EVERY scene: ${charInfo}` : ''}
+${extras ? `- Apply these rules to ALL scenes: ${extras}` : ''}
+- Optimize prompts specifically for: ${motor}`;
+
+  const userPrompt = `Analyze this narration and create professional video prompts:
+
+NARRATION:
+"""
+${transcricao}
+"""
+
+SETTINGS:
+- Visual style: ${estilo}
+- Narrative structure: ${narrativa}
+- Target platform: ${motor}
+- Scene duration: ${duracaoNum} seconds
+- Generate: ${tipoInstrucao}
+
+IMPORTANT: Divide the narration into natural scenes. Calculate timing based on text length.
+
+Respond ONLY with a JSON array. Each item must be:
+{
+  "scene": 1,
+  "time_start": "00:00",
+  "time_end": "00:08",
+  "narration": "exact excerpt from narration",
+  "emotion": "main emotion",
+  "location": "scene location",
+  "camera": "camera movement/angle",
+  "image_prompt": "detailed image prompt in English..." (or null if not needed),
+  "video_prompt": "detailed video prompt in English..." (or null if not needed)
+}
+
+Generate as many scenes as needed to cover the full narration. No markdown, just raw JSON array.`;
+
+  try {
+    const provedor = getRadio('provedor-group') || 'openai';
+    const texto = await chamarAPI(apiKey, provedor, [{ role: 'user', content: userPrompt }], systemPrompt, 4000);
+    const clean = texto.replace(/```json|```/g, '').trim();
+    const scenes = JSON.parse(clean);
+    state.scenes = scenes;
+    renderOutput(scenes, motor, estilo);
+    esconderLoading();
+  } catch(err) {
+    esconderLoading();
+    alert('Erro ao gerar prompts: ' + err.message);
+  }
+}
+
+// ── RENDER ─────────────────────────────────────────────
+function renderOutput(scenes, motor, estilo) {
+  document.getElementById('output-empty').style.display = 'none';
+  document.getElementById('output-content').style.display = 'block';
+  document.getElementById('output-title').textContent = `${scenes.length} cenas geradas`;
+  document.getElementById('output-stats').textContent = `Motor: ${motor} · Estilo: ${estilo} · ${scenes.length} prompts`;
+
+  const list = document.getElementById('scenes-list');
+  list.innerHTML = '';
+
+  scenes.forEach((s, i) => {
+    const card = document.createElement('div');
+    card.className = 'scene-card';
+
+    const imgBlock = s.image_prompt ? `
+      <div class="prompt-block">
+        <div class="prompt-label img">🖼️ Image Prompt</div>
+        <pre class="prompt-text">${s.image_prompt}</pre>
+        <button class="btn-copy" onclick="copiarTexto(this, ${JSON.stringify(s.image_prompt)})">Copiar</button>
+      </div>` : '';
+
+    const vidBlock = s.video_prompt ? `
+      <div class="prompt-block">
+        <div class="prompt-label vid">🎬 Video Prompt</div>
+        <pre class="prompt-text">${s.video_prompt}</pre>
+        <button class="btn-copy" onclick="copiarTexto(this, ${JSON.stringify(s.video_prompt)})">Copiar</button>
+      </div>` : '';
+
+    card.innerHTML = `
+      <div class="scene-header">
+        <div class="scene-num">Cena ${String(s.scene).padStart(2,'0')}</div>
+        <div class="scene-time">${s.time_start || ''} → ${s.time_end || ''}</div>
+      </div>
+      <div class="scene-meta">
+        <span class="meta-tag emotion">😮 ${s.emotion || ''}</span>
+        <span class="meta-tag location">📍 ${s.location || ''}</span>
+        <span class="meta-tag camera">🎥 ${s.camera || ''}</span>
+      </div>
+      <div class="scene-narration">"${s.narration || ''}"</div>
+      ${imgBlock}
+      ${vidBlock}
+    `;
+    list.appendChild(card);
+  });
+}
+
+// ── EXPORT ─────────────────────────────────────────────
+function exportar(formato) {
+  const scenes = state.scenes;
+  if (!scenes.length) return;
+  let content = '', filename = '', type = 'text/plain';
+
+  if (formato === 'json') {
+    content = JSON.stringify(scenes, null, 2);
+    filename = 'prompts.json';
+    type = 'application/json';
+  } else if (formato === 'txt') {
+    content = scenes.map(s =>
+      `CENA ${String(s.scene).padStart(2,'0')} | ${s.time_start} → ${s.time_end}\n` +
+      `Emoção: ${s.emotion} | Local: ${s.location} | Câmera: ${s.camera}\n` +
+      `Narração: "${s.narration}"\n\n` +
+      (s.image_prompt ? `IMAGE PROMPT:\n${s.image_prompt}\n\n` : '') +
+      (s.video_prompt ? `VIDEO PROMPT:\n${s.video_prompt}\n` : '') +
+      '\n' + '─'.repeat(60) + '\n'
+    ).join('\n');
+    filename = 'prompts.txt';
+  } else if (formato === 'csv') {
+    const rows = [['Cena','Inicio','Fim','Emocao','Local','Camera','Narracao','Image Prompt','Video Prompt']];
+    scenes.forEach(s => rows.push([s.scene, s.time_start, s.time_end, s.emotion, s.location, s.camera, s.narration, s.image_prompt||'', s.video_prompt||'']));
+    content = rows.map(r => r.map(c => `"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+    filename = 'prompts.csv';
+    type = 'text/csv';
+  }
+
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── COPY ──────────────────────────────────────────────
+function copiarTexto(btn, texto) {
+  navigator.clipboard.writeText(texto).then(() => {
+    btn.textContent = '✓ Copiado';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copiar'; btn.classList.remove('copied'); }, 1800);
+  });
+}
+
+// ── LOADING ───────────────────────────────────────────
+function mostrarLoading(txt, sub) {
+  document.getElementById('loading-text').textContent = txt;
+  document.getElementById('loading-sub').textContent = sub || '';
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('btn-gerar').disabled = true;
+}
+function atualizarLoading(txt) {
+  document.getElementById('loading-text').textContent = txt;
+}
+function esconderLoading() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('btn-gerar').disabled = false;
+}
+</script>
+</body>
+</html>
